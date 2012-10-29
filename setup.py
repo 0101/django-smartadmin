@@ -11,7 +11,7 @@ setup(
     author='Petr Pokorny',
     author_email='petr@innit.cz',
     license='MIT',
-    url='http://0101.github.com/django-smartadmin/',
+    url='https://github.com/0101/django-smartadmin/',
     packages=['smartadmin'],
     include_package_data=True,
     install_requires=(
