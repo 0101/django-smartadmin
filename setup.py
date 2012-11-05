@@ -16,6 +16,6 @@ setup(
     include_package_data=True,
     install_requires=(
          'setuptools>=0.6b1',
-         'pipetools>=0.1.7',
+         'pipetools>=0.1.9',
     ),
 )
