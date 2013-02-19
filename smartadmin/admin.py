@@ -2,12 +2,12 @@ from pipetools import maybe, select_first, X, where, foreach, pipe, flatten
 
 from django.contrib import admin
 from django.contrib.auth.models import User
-from django.db.models import AutoField, TextField, CharField, SlugField, DateField, DateTimeField, ForeignKey, BooleanField
+from django.db.models import AutoField, TextField, CharField, SlugField, DateField, DateTimeField, ForeignKey, BooleanField, ManyToManyField
 
 
 class SmartAdmin(admin.ModelAdmin):
 
-    list_display_exclude = AutoField, TextField
+    list_display_exclude = AutoField, TextField, ManyToManyField
     search_field_types = CharField, SlugField, TextField
 
     def __init__(self, *args, **kwargs):
@@ -28,11 +28,15 @@ class SmartAdmin(admin.ModelAdmin):
         self.raw_id_fields = (self.raw_id_fields or self._get_fields(
             self.should_be_raw_id_field))
 
+        self.filter_horizontal = self.filter_horizontal or self._get_fields(
+            type | (X == ManyToManyField))
+
     @property
     def all_fields(self):
         return (
             self.model._meta.fields,
             self.model._meta.virtual_fields,
+            self.model._meta.many_to_many,
         ) > flatten | tuple
 
     def _get_fields(self, cond):
