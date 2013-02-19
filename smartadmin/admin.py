@@ -2,13 +2,13 @@ from pipetools import maybe, select_first, X, where, foreach, pipe, flatten
 
 from django.contrib import admin
 from django.contrib.auth.models import User
-from django.db import models
+from django.db.models import AutoField, TextField, CharField, SlugField, DateField, DateTimeField, ForeignKey, BooleanField
 
 
 class SmartAdmin(admin.ModelAdmin):
 
-    list_display_exclude = models.AutoField, models.TextField
-    search_field_types = models.CharField, models.SlugField, models.TextField
+    list_display_exclude = AutoField, TextField
+    search_field_types = CharField, SlugField, TextField
 
     def __init__(self, *args, **kwargs):
         super(SmartAdmin, self).__init__(*args, **kwargs)
@@ -18,8 +18,7 @@ class SmartAdmin(admin.ModelAdmin):
                 lambda field: type(field) not in self.list_display_exclude))
 
         self.date_hierarchy = (self.date_hierarchy or self.all_fields > maybe
-            | select_first(lambda field: type(field) in
-                (models.DateTimeField, models.DateField))
+            | select_first(type | X._in_([DateTimeField, DateField]))
             | X.name)
 
         self.list_filter = (self.list_filter or self._get_fields(
@@ -31,7 +30,10 @@ class SmartAdmin(admin.ModelAdmin):
 
     @property
     def all_fields(self):
-        return self.model._meta.fields + self.model._meta.virtual_fields
+        return (
+            self.model._meta.fields,
+            self.model._meta.virtual_fields,
+        ) > flatten | tuple
 
     def _get_fields(self, cond):
         return self.all_fields > where(cond) | foreach(X.name) | tuple
@@ -43,7 +45,7 @@ class SmartAdmin(admin.ModelAdmin):
             # if there are any ForeignKeys to User, we'd like to be able to
             # search by the user's last_name, username and email
             (self.all_fields > pipe
-                | where(isinstance, X, models.ForeignKey)
+                | where(isinstance, X, ForeignKey)
                 | where(X.related.parent_model | (issubclass, X, User))
                 | foreach(X.name)
                 | foreach(['{0}__last_name', '{0}__username', '{0}__email']))
@@ -54,13 +56,13 @@ class SmartAdmin(admin.ModelAdmin):
         choices = getattr(field, 'choices', None)
         if choices and len(choices) < 20:
             return True
-        if (isinstance(field, models.ForeignKey) and
+        if (isinstance(field, ForeignKey) and
             field.related.parent_model._default_manager.count() < 20):
             return True
-        if (isinstance(field, models.BooleanField)):
+        if (isinstance(field, BooleanField)):
             return True
 
     def should_be_raw_id_field(self, field):
-        if (isinstance(field, models.ForeignKey) and
+        if (isinstance(field, ForeignKey) and
             field.related.parent_model._default_manager.count() > 30):
             return True
