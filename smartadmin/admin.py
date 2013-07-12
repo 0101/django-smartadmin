@@ -6,11 +6,19 @@ from django.contrib.auth.models import User
 from django.db.models import AutoField, TextField, CharField, SlugField, DateField, DateTimeField, ForeignKey, BooleanField, ManyToManyField
 
 
+def _get_related_model(model, names):
+    first = model._meta.get_field(names[0]).related.parent_model
+    return first if len(names) < 2 else _get_related_model(first, names[1:])
+
+
 def existing_related(model, field_name):
     "Returns objects related to any instance of `model` by `field_name`."
-    field = model._meta.get_field(field_name)
-    related = field.related.parent_model
-    return related.objects.filter(pk__in=model.objects.values(field_name))
+    existing_pks = (model.objects
+        .order_by()
+        .distinct()
+        .values_list(field_name, flat=True))
+    related = _get_related_model(model, field_name.split('__'))
+    return related.objects.filter(pk__in=existing_pks)
 
 
 def filter_existing(field_name, title_=None):
@@ -20,7 +28,7 @@ def filter_existing(field_name, title_=None):
     """
     class ListFilterExisting(SimpleListFilter):
         title = title_ or field_name.replace('_', ' ').capitalize()
-        parameter_name = field_name
+        parameter_name = field_name.replace('__', '-')
 
         def lookups(self, request, model_admin):
             format = foreach([X.pk, unicode]) | tuple
@@ -42,7 +50,7 @@ class SmartAdmin(admin.ModelAdmin):
         super(SmartAdmin, self).__init__(*args, **kwargs)
 
         if self.list_display == admin.ModelAdmin.list_display:
-            self.list_display = ('__unicode__', ) + (self._get_fields(
+            self.list_display = ('__str__', ) + (self._get_fields(
                 lambda field: type(field) not in self.list_display_exclude))
 
         self.date_hierarchy = (self.date_hierarchy or self.all_fields > maybe
